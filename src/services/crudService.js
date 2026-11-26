@@ -1,4 +1,10 @@
 import { supabase } from "../config/supabase";
+import {
+    actualizarRegistroCatalogo,
+    crearRegistroCatalogo,
+    darDeBajaRegistroCatalogo,
+    esTablaCatalogo,
+} from "./catalogoService";
 
 // Datos de auditoría que usan todas las tablas del sistema.
 const AUD = { usuario: "WEB", pc: "PC-WEB" };
@@ -96,6 +102,11 @@ export const listarPaginado = async (
 };
 
 export const insertar = async (tabla, fila) => {
+    if (esTablaCatalogo(tabla)) {
+        await crearRegistroCatalogo(tabla, fila);
+        return;
+    }
+
     if (tabla === "usuario") {
         throw new Error("Las cuentas de usuario solo se gestionan desde el CRUD protegido de Usuarios.");
     }
@@ -183,6 +194,11 @@ export const guardarEmpleadoConPersona = async ({ empleado, persona }) => {
 };
 
 export const actualizar = async (tabla, pk, id, fila) => {
+    if (esTablaCatalogo(tabla)) {
+        await actualizarRegistroCatalogo(tabla, id, fila);
+        return;
+    }
+
     if (tabla === "usuario") {
         throw new Error("Las cuentas de usuario solo se gestionan desde el CRUD protegido de Usuarios.");
     }
@@ -193,6 +209,11 @@ export const actualizar = async (tabla, pk, id, fila) => {
 
 // Eliminar = baja lógica (estado = '0'), igual que el resto del sistema.
 export const eliminar = async (tabla, pk, id) => {
+    if (esTablaCatalogo(tabla)) {
+        await darDeBajaRegistroCatalogo(tabla, id);
+        return;
+    }
+
     if (tabla === "usuario") {
         throw new Error("Las cuentas de usuario solo se gestionan desde el CRUD protegido de Usuarios.");
     }

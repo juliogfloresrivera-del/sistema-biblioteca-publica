@@ -85,6 +85,8 @@ La aplicación está adaptada al esquema final de Supabase: `lector`, `libro`, `
 
 Configura `REACT_APP_SUPABASE_URL` y `SUPABASE_URL` para que frontend y backend apunten al mismo proyecto de Supabase. Aplica tambien la migracion `backend/migrations/20261126_mejora_base_datos.sql` en el SQL Editor de Supabase para agregar restricciones, indices, auditoria automatica y vistas de consulta. Si aparece `Could not find the table ... in the schema cache` para una tabla incluida en el respaldo, confirma que el esquema se importó a ese proyecto y actualiza la caché del esquema de la API de Supabase. No ejecutes migraciones de un esquema anterior sin revisar que coincidan con esta base.
 
+Las altas, modificaciones y bajas del catálogo (`autor`, `editorial`, `categoria`, `libro` y `ejemplar`) pasan por la API autenticada y requieren `SUPABASE_SERVICE_ROLE_KEY` únicamente en `backend/.env`. No crees políticas RLS abiertas para `anon` ni expongas esa clave al frontend; el acceso a estas rutas requiere una sesión válida con el módulo `CATALOGO`.
+
 Ejecuta las verificaciones locales:
 
 ```bash

@@ -7,6 +7,7 @@ const express = require("express");
 const cors = require("cors");
 
 const authRoutes = require("./routes/authRoutes");
+const catalogoRoutes = require("./routes/catalogoRoutes");
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.get("/", (req, res) => {
 
 // Rutas de autenticación
 app.use("/api/auth", authRoutes);
+app.use("/api/catalogo", catalogoRoutes);
 
 // Iniciar servidor
 app.listen(PORT, () => {

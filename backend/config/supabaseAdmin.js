@@ -8,7 +8,7 @@ const obtenerSupabaseAdmin = () => {
 
     if (!url || !claveServicio) {
         const error = new Error(
-            "La gestión de usuarios requiere SUPABASE_SERVICE_ROLE_KEY configurada solo en el backend."
+            "Las operaciones protegidas requieren SUPABASE_SERVICE_ROLE_KEY configurada solo en el backend."
         );
         error.status = 503;
         throw error;
