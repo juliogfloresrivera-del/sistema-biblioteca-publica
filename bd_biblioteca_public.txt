@@ -203,6 +203,7 @@ CREATE TABLE SOCIO(
     sexo                    CHAR(1)                 NULL,
     id_distrito             INT                     NULL,
     direccion               VARCHAR(120)            NULL,
+    referencia_direccion    VARCHAR(250)            NULL,
     telefono                VARCHAR(15)             NULL,
     correo                  VARCHAR(80)             NULL,
     fecha_afiliacion        DATE                NOT NULL DEFAULT CAST(CURRENT_TIMESTAMP AS DATE),
