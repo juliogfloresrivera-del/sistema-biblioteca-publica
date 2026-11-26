@@ -87,6 +87,8 @@ Configura `REACT_APP_SUPABASE_URL` y `SUPABASE_URL` para que frontend y backend 
 
 Las altas, modificaciones y bajas del catálogo (`autor`, `editorial`, `categoria`, `libro` y `ejemplar`) pasan por la API autenticada y requieren `SUPABASE_SERVICE_ROLE_KEY` únicamente en `backend/.env`. No crees políticas RLS abiertas para `anon` ni expongas esa clave al frontend; el acceso a estas rutas requiere una sesión válida con el módulo `CATALOGO`.
 
+Para habilitar el portal de clientes, aplica también `backend/migrations/20261126_portal_clientes.sql` en el SQL Editor de Supabase para crear el rol activo `CLIENTE`. Un administrador crea la cuenta desde **Usuarios**, selecciona ese rol y vincula un socio activo sin cuenta. La persona inicia sesión con el usuario/correo y contraseña que se registraron; el portal muestra su perfil y el catálogo.
+
 Ejecuta las verificaciones locales:
 
 ```bash
@@ -95,4 +97,4 @@ npm test --prefix backend
 npm run build
 ```
 
-Prueba el flujo de registro de socio, inicio de sesión, consulta de DNI con una sesión válida, acceso al catálogo y lectura en tamaños de pantalla distintos. Los pagos con tarjeta requieren seleccionar e integrar un proveedor antes de aceptar pagos reales; no se deben simular como transacciones completadas.
+Prueba el registro de socio, la creación administrativa de su cuenta vinculada, el inicio de sesión del cliente, la consulta del catálogo y la lectura en tamaños de pantalla distintos. Los pagos con tarjeta requieren seleccionar e integrar un proveedor antes de aceptar pagos reales; no se deben simular como transacciones completadas.

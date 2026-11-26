@@ -1,5 +1,6 @@
 const { obtenerSupabaseAdmin } = require("../config/supabaseAdmin");
 const { hashearClave } = require("../utils/password");
+const { esRolCliente } = require("../utils/roles");
 
 const CAMPOS = "id_usuario,nombre_usuario,nombres,apellido_paterno,apellido_materno,correo,dni,estado,id_rol,bloqueado,intentos_fallidos";
 
@@ -56,7 +57,10 @@ const validar = (entrada, nuevo) => {
         apellido_materno: String(entrada.apellido_materno || "").trim() || null,
         correo,
         dni: String(entrada.dni || "").trim() || null,
-        id_rol: idValido(entrada.id_rol, "rol")
+        id_rol: idValido(entrada.id_rol, "rol"),
+        ...(entrada.id_lector == null || String(entrada.id_lector).trim() === ""
+            ? {}
+            : { id_lector: idValido(entrada.id_lector, "lector") })
     };
 };
 
@@ -130,28 +134,80 @@ const listarUsuarios = async ({ pagina = 1, pageSize = 25, busqueda = "" } = {})
 
 const obtenerOpciones = async () => {
     const supabase = obtenerSupabaseAdmin();
-    const { data, error } = await supabase
-        .from("rol")
-        .select("id_rol,nombre_rol")
-        .eq("estado", "A")
-        .order("nombre_rol");
-    lanzarError(error);
-    return { tipos: [], empleados: [], roles: data || [] };
+    const [resultadoRoles, resultadoLectores] = await Promise.all([
+        supabase
+            .from("rol")
+            .select("id_rol,nombre_rol")
+            .eq("estado", "A")
+            .order("nombre_rol"),
+        supabase
+            .from("lector")
+            .select("id_lector,codigo_carnet,dni,nombres,apellido_paterno,apellido_materno,id_usuario")
+            .eq("estado", "A")
+            .is("id_usuario", null)
+            .order("id_lector", { ascending: true })
+    ]);
+    lanzarError(resultadoRoles.error);
+    lanzarError(resultadoLectores.error);
+    return {
+        tipos: [],
+        empleados: [],
+        roles: resultadoRoles.data || [],
+        lectores: resultadoLectores.data || []
+    };
 };
 
 const crearUsuario = async (entrada) => {
     const supabase = obtenerSupabaseAdmin();
     const datos = validar(entrada, true);
-    await obtenerRolActivo(supabase, datos.id_rol);
-    const { clave, ...fila } = datos;
-    const { error } = await supabase.from("usuario").insert({
+    const rol = await obtenerRolActivo(supabase, datos.id_rol);
+    const esCliente = esRolCliente(rol.nombre_rol);
+    if (esCliente && !datos.id_lector) {
+        const error = new Error("Selecciona el socio o lector que se vinculará a esta cuenta.");
+        error.status = 400;
+        throw error;
+    }
+    if (!esCliente && datos.id_lector) {
+        const error = new Error("Solo las cuentas con rol de cliente pueden vincularse a un lector.");
+        error.status = 400;
+        throw error;
+    }
+
+    const { clave, id_lector: idLector, ...fila } = datos;
+    const { data: usuario, error: errorUsuario } = await supabase.from("usuario").insert({
         ...fila,
         clave_hash: await hashearClave(clave),
         estado: "A",
         bloqueado: false,
         intentos_fallidos: 0
-    });
-    lanzarError(error);
+    }).select("id_usuario").single();
+    lanzarError(errorUsuario);
+
+    if (esCliente) {
+        const { data: lector, error: errorLector } = await supabase
+            .from("lector")
+            .update({ id_usuario: usuario.id_usuario })
+            .eq("id_lector", idLector)
+            .eq("estado", "A")
+            .is("id_usuario", null)
+            .select("id_lector")
+            .maybeSingle();
+
+        if (errorLector || !lector) {
+            const { error: errorLimpieza } = await supabase
+                .from("usuario")
+                .delete()
+                .eq("id_usuario", usuario.id_usuario);
+            if (errorLimpieza) {
+                console.error("No se pudo revertir la cuenta al fallar el vínculo con el lector:", errorLimpieza);
+                throw new Error("No se pudo vincular el lector y tampoco revertir la cuenta creada. Revisa los datos en el sistema.");
+            }
+            if (errorLector) lanzarError(errorLector);
+            const error = new Error("El socio o lector ya tiene una cuenta vinculada o no está activo.");
+            error.status = 409;
+            throw error;
+        }
+    }
 };
 
 const actualizarUsuario = async (idEntrada, entrada) => {
@@ -171,6 +227,20 @@ const actualizarUsuario = async (idEntrada, entrada) => {
         error.status = 404;
         throw error;
     }
+    if (esRolCliente(rol.nombre_rol)) {
+        const { data: lectorVinculado, error: errorLector } = await supabase
+            .from("lector")
+            .select("id_lector")
+            .eq("id_usuario", idUsuario)
+            .eq("estado", "A")
+            .maybeSingle();
+        lanzarError(errorLector);
+        if (!lectorVinculado) {
+            const error = new Error("Para asignar un rol de cliente, la cuenta debe estar vinculada a un socio activo.");
+            error.status = 409;
+            throw error;
+        }
+    }
 
     const administradores = await cantidadAdministradores(supabase);
     const eraAdministrador = String(existente.id_rol) === String(administradores.idRol);
@@ -181,7 +251,10 @@ const actualizarUsuario = async (idEntrada, entrada) => {
         throw error;
     }
 
-    const { clave, ...actualizacion } = datos;
+    const actualizacion = { ...datos };
+    const clave = actualizacion.clave;
+    delete actualizacion.clave;
+    delete actualizacion.id_lector;
     if (clave) actualizacion.clave_hash = await hashearClave(clave);
     const { error } = await supabase
         .from("usuario")

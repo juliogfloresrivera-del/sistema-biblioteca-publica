@@ -7,7 +7,8 @@ const usuarios = [{ id_usuario: 42, id_rol: 1, estado: "A" }];
 const roles = [
     { id_rol: 1, nombre_rol: "ADMINISTRADOR", estado: "A" },
     { id_rol: 2, nombre_rol: "BIBLIOTECARIO", estado: "A" },
-    { id_rol: 3, nombre_rol: "INACTIVO", estado: "I" }
+    { id_rol: 3, nombre_rol: "INACTIVO", estado: "I" },
+    { id_rol: 4, nombre_rol: "CLIENTE", estado: "A" }
 ];
 
 const supabaseSimulado = {
@@ -71,6 +72,19 @@ test("returns the assigned non-admin library role", async () => {
     const resultado = await obtenerPermisosUsuario(42);
     assert.equal(resultado.roles[0], "BIBLIOTECARIO");
     assert.ok(resultado.modulos.includes("CATALOGO"));
+    assert.equal(resultado.modulos.includes("USUARIOS"), false);
+    usuarios[0].id_rol = 1;
+});
+
+test("limits client accounts to the client portal", async () => {
+    usuarios[0].id_rol = 4;
+    const resultado = await obtenerPermisosUsuario(42);
+
+    assert.deepEqual(resultado, {
+        roles: ["CLIENTE"],
+        modulos: ["PORTAL_CLIENTE"]
+    });
+
     usuarios[0].id_rol = 1;
 });
 

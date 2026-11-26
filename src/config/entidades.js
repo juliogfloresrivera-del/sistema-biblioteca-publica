@@ -142,6 +142,8 @@ export const ENTIDADES = {
       { name: "apellido_materno", label: "Segundo apellido", type: "text", maxLength: 150 },
       { name: "correo", label: "Correo", type: "email", required: true, maxLength: 250 },
       { name: "dni", label: "DNI", type: "text", maxLength: 20 },
+      { name: "id_lector", label: "Socio / lector vinculado", type: "select", soloFormulario: true,
+        ref: { tabla: "lector", pk: "id_lector", label: (r) => `${r.codigo_carnet} · ${r.nombres} ${r.apellido_paterno}` } },
     ],
   },
 };

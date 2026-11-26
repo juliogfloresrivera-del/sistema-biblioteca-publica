@@ -35,6 +35,10 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
     // Opciones: acepta "TEXTO" o { value, label }
     const normalizar = (o) =>
         typeof o === "string" ? { value: o, label: o } : o;
+    const esRolCliente = (nombre) => {
+        const rol = String(nombre || "").trim().toUpperCase();
+        return rol === "USUARIO" || /(?:^|[\s/_-])(CLIENTE|SOCIO|LECTOR)(?:$|[\s/_-])/.test(rol);
+    };
 
     const [filas, setFilas] = useState([]);
     const [refs, setRefs] = useState({});
@@ -55,6 +59,10 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
     const [formAbierto, setFormAbierto] = useState(false);
     const [editandoId, setEditandoId] = useState(null);
     const [valores, setValores] = useState({});
+    const rolSeleccionado = (refs.rol || []).find(
+        (rol) => String(rol.id_rol) === String(valores.id_rol || "")
+    );
+    const cuentaCliente = entidad.adminUsuarios && esRolCliente(rolSeleccionado?.nombre_rol);
     const [busquedasReferencia, setBusquedasReferencia] = useState({});
     const [guardando, setGuardando] = useState(false);
     const [consultandoDocumento, setConsultandoDocumento] = useState(false);
@@ -102,6 +110,7 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
             nuevasRefs.tipo_usuario = opciones.tipos || [];
             nuevasRefs.empleado = opciones.empleados || [];
             nuevasRefs.rol = opciones.roles || [];
+            nuevasRefs.lector = opciones.lectores || [];
         } else {
             unicas.forEach((r, i) => {
                 nuevasRefs[r.tabla] = resultados[i];
@@ -265,6 +274,23 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
         )?.autocompletarDesde;
         setValores((prev) => {
             const siguientes = { ...prev, [name]: value };
+            if (name === "id_rol") {
+                const rol = (refs.rol || []).find(
+                    (item) => String(item.id_rol) === String(value)
+                );
+                if (!esRolCliente(rol?.nombre_rol)) siguientes.id_lector = "";
+            }
+            if (name === "id_lector") {
+                const lector = (refs.lector || []).find(
+                    (item) => String(item.id_lector) === String(value)
+                );
+                if (lector) {
+                    siguientes.nombres = lector.nombres || "";
+                    siguientes.apellido_paterno = lector.apellido_paterno || "";
+                    siguientes.apellido_materno = lector.apellido_materno || "";
+                    siguientes.dni = lector.dni || "";
+                }
+            }
             if (autocompletar) {
                 const referencia = (refs[autocompletar.tabla] || []).find(
                     (fila) => String(fila[autocompletar.pk]) === String(value)
@@ -390,6 +416,7 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
     const validar = () => {
         const datos = {};
         for (const c of campos) {
+            if (c.name === "id_lector" && (!cuentaCliente || editandoId)) continue;
             if (c.oculto) {
                 if (!editandoId) {
                     datos[c.name] = typeof c.defecto === "function" ? c.defecto() : c.defecto;
@@ -398,7 +425,9 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
             }
             let v = String(valores[c.name] ?? "").trim();
 
-            const requerido = c.required && !(editandoId && c.requiredOnCreate);
+            const requerido = c.name === "id_lector"
+                ? cuentaCliente
+                : c.required && !(editandoId && c.requiredOnCreate);
             if (requerido && !v) {
                 avisar(`El campo "${c.label}" es obligatorio.`, false);
                 return null;
@@ -745,6 +774,7 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {camposFormulario.map((c) => {
+                            if (c.name === "id_lector" && (!cuentaCliente || editandoId)) return null;
                             const referenciaAutocompletado = c.autocompletarDesde
                                 ? (refs[c.autocompletarDesde.tabla] || []).find(
                                     (fila) => String(fila[c.autocompletarDesde.pk]) ===
@@ -791,6 +821,9 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
                                     (fila) => String(fila[c.ref.pk]) === String(valores[c.name] || "")
                                 )
                                 : null;
+                            const requerido = c.name === "id_lector"
+                                ? cuentaCliente
+                                : c.required && (!editandoId || !c.requiredOnCreate);
                             const opcionesReferenciaVisibles = referenciaSeleccionada
                                 && !opcionesReferenciaFiltradas.some(
                                     (fila) => String(fila[c.ref.pk]) === String(referenciaSeleccionada[c.ref.pk])
@@ -800,7 +833,7 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
 
                             return (
                             <label key={c.name} className="block text-xs font-semibold text-slate-700">
-                                {c.label}{c.required && (!editandoId || !c.requiredOnCreate) && " *"}
+                                {c.label}{requerido && " *"}
 
                                 {c.type === "select" ? (
                                     <>
@@ -819,9 +852,10 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
                                         )}
                                         <select
                                             name={c.name}
-                                            aria-label={`${c.label}${c.required && (!editandoId || !c.requiredOnCreate) ? " *" : ""}`}
+                                            aria-label={`${c.label}${requerido ? " *" : ""}`}
                                             value={valores[c.name] ?? ""}
                                             onChange={cambiar}
+                                            disabled={c.name === "id_lector" && !opcionesReferencia.length}
                                             className={`${inputClase} mt-1.5 font-normal`}
                                         >
                                             <option value="">-- Seleccione --</option>
@@ -835,6 +869,11 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
                                                     <option key={o.value} value={o.value}>{o.label}</option>
                                                 ))}
                                         </select>
+                                        {c.name === "id_lector" && !opcionesReferencia.length && (
+                                            <span role="status" className="mt-1 block font-normal text-amber-700">
+                                                No hay socios activos sin cuenta. Cancela y registra primero al socio en la sección Socios.
+                                            </span>
+                                        )}
                                         {c.buscarReferencia && (
                                             <span className="mt-1 block text-[11px] font-normal text-gray-500">
                                                 {busquedaReferencia
@@ -847,7 +886,7 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
                                     <input
                                         name={c.name}
                                         type={c.type}
-                                        aria-label={`${c.label}${c.required && (!editandoId || !c.requiredOnCreate) ? " *" : ""}`}
+                                        aria-label={`${c.label}${requerido ? " *" : ""}`}
                                         min={c.min}
                                         step={c.type === "number" ? "0.01" : undefined}
                                         minLength={c.minLength}
@@ -891,8 +930,8 @@ const CrudModule = ({ entidadKey, onCurrentUserDeleted }) => {
                         {!editandoId ? (
                             <button
                                 onClick={guardar}
-                                disabled={guardando}
-                                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                disabled={guardando || (cuentaCliente && !refs.lector?.length)}
+                                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 Guardar
                             </button>

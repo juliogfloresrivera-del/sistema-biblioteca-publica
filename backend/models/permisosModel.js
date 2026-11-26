@@ -1,4 +1,17 @@
 const supabase = require("../config/supabase");
+const { esRolCliente } = require("../utils/roles");
+
+const MODULOS_ADMINISTRATIVOS = [
+  "CATALOGO", "CIRCULACION", "SOCIOS", "USUARIOS", "REPORTES"
+];
+
+const obtenerModulos = (nombreRol) => {
+  if (esRolCliente(nombreRol)) return ["PORTAL_CLIENTE"];
+  if (String(nombreRol || "").trim().toUpperCase() === "ADMINISTRADOR") {
+    return MODULOS_ADMINISTRATIVOS;
+  }
+  return MODULOS_ADMINISTRATIVOS.filter((modulo) => modulo !== "USUARIOS");
+};
 
 const obtenerPermisosUsuario = async (idUsuario) => {
   let usuarioConsulta = await supabase
@@ -20,7 +33,7 @@ const obtenerPermisosUsuario = async (idUsuario) => {
     const nombreRol = tipo?.n_tipousuario || "ADMINISTRADOR";
     return {
       roles: [nombreRol],
-      modulos: ["CATALOGO", "CIRCULACION", "SOCIOS", "USUARIOS", "REPORTES"]
+      modulos: obtenerModulos(nombreRol)
     };
   }
 
@@ -45,7 +58,7 @@ const obtenerPermisosUsuario = async (idUsuario) => {
   const nombreRol = rol?.nombre_rol || "";
   return {
     roles: nombreRol ? [nombreRol] : [],
-    modulos: nombreRol ? ["CATALOGO", "CIRCULACION", "SOCIOS", "USUARIOS", "REPORTES"] : []
+    modulos: nombreRol ? obtenerModulos(nombreRol) : []
   };
 };
 

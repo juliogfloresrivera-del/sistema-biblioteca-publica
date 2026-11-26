@@ -6,6 +6,7 @@ import { ENTIDADES } from "../config/entidades";
 import { supabase } from "../config/supabase";
 import { cerrarSesion, obtenerSesion } from "../services/authSession";
 import MetodosPago from "./MetodosPago";
+import ClientePortal from "./ClientePortal";
 
 const MENU = [
   { clave: "socios", nombre: "Socios", icono: "bi-person-badge" },
@@ -58,10 +59,12 @@ const obtenerTemaPorRol = (usuario, roles = []) => {
     rawRol.includes("usuario") ||
     usuario?.id_rol === 2 ||
     usuario?.id_rol === 3;
+  const esAdmin = rawRol.trim().toUpperCase() === "ADMINISTRADOR";
 
   if (esSocioOCliente) {
     return {
       esAdmin: false,
+      esCliente: true,
       etiquetaRol: usuario?.rol || usuario?.tipo_usuario || "Socio / Cliente",
       asideClase: "bg-slate-900 text-white",
       overlayClase: "bg-slate-950/50",
@@ -73,8 +76,9 @@ const obtenerTemaPorRol = (usuario, roles = []) => {
   }
 
   return {
-    esAdmin: true,
-    etiquetaRol: usuario?.rol || usuario?.tipo_usuario || "Administrador",
+    esAdmin,
+    esCliente: false,
+    etiquetaRol: usuario?.rol || usuario?.tipo_usuario || roles[0] || "Usuario",
     asideClase: "bg-biblioteca-plum text-white",
     overlayClase: "bg-biblioteca-plum/40",
     activoClase: "sidebar-item bg-biblioteca-coral text-white",
@@ -323,6 +327,10 @@ const Dashboard = () => {
     [usuario, sesion?.roles]
   );
 
+  useEffect(() => {
+    if (!temaRol.esAdmin && vista === "usuarios") setVista("dashboard");
+  }, [temaRol.esAdmin, vista]);
+
   if (!usuario) return null;
 
   const entidad = ENTIDADES[vista];
@@ -344,6 +352,13 @@ const Dashboard = () => {
     setVista(nuevaVista);
     setSidebarOpen(false);
   };
+  const menuVisible = temaRol.esAdmin
+    ? MENU
+    : MENU.filter((item) => item.clave !== "usuarios");
+
+  if (temaRol.esCliente) {
+    return <ClientePortal usuario={usuario} onLogout={cerrar} />;
+  }
 
   return (
     <div className="min-h-screen bg-biblioteca-paper">
@@ -385,7 +400,7 @@ const Dashboard = () => {
             <span>Lector digital</span>
           </button>
 
-          {MENU.map((item) => (
+          {menuVisible.map((item) => (
             <button
               key={item.clave}
               className={vista === item.clave ? temaRol.activoClase : "sidebar-item"}
